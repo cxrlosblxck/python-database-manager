@@ -179,12 +179,12 @@ class MySQLDBCreator(QDialog):
                 'user': self.user.text(),
                 'password': self.password.text()
             }
-            self.info.setPlainText(f"✅ {message}")
+            self.info.setPlainText(f" {message}")
             self.lista_actualizada(True, "", databases)
             self.create_btn.setEnabled(True)
             self.refresh_btn.setEnabled(True)
         else:
-            self.info.setPlainText(f"❌ {message}")
+            self.info.setPlainText(f" {message}")
             QMessageBox.critical(self, "Error", message)
     
     def actualizar_lista_bd(self):
