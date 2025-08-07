@@ -174,10 +174,10 @@ class MySQLCompleteEditor(QDialog):
         
         # Configuración de conexión predefinida
         self.config_servidor = {
-            'host': '192.168.1.72',
+            'host': '',#cambiar por tu ip/host
             'port': 3306,
-            'user': 'usuario0',
-            'password': '@Holamundo0123'
+            'user': '',#usuario
+            'password': ''#contraseña
         }
         
         self.current_db = None
