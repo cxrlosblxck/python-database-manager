@@ -88,10 +88,10 @@ class GestorConexion:
     
     def __init__(self):
         self.config = {
-            'host': '192.168.1.72',# Cambia esto por tu host/dirección IP
+            'host': '',# Cambia esto por tu host/dirección IP
             'port': 3306,
-            'user': 'usuario0', #cambia esto por tu usuario
-            'password': '@Holamundo0123' #cambia esto por tu contraseña
+            'user': '', #cambia esto por tu usuario
+            'password': '' #cambia esto por tu contraseña
         }
         self.conexion = None #bjeto de conexión a la BD
         self.database = None #referencia a la base de datos
@@ -131,7 +131,7 @@ class GestorConexion:
             cursor.close()
             return bases_datos
         except Error as e:
-            print(f"❌ Error al obtener bases de datos: {e}")
+            print(f" Error al obtener bases de datos: {e}")
             return []
 
     def seleccionar_base_datos(self, database):
@@ -139,7 +139,7 @@ class GestorConexion:
             self.database = database
             if self.conexion and self.conexion.is_connected():
                 self.conexion.database = database
-                print(f"✅ Base de datos {database} seleccionada")
+                print(f" Base de datos {database} seleccionada")
                 return True
             return False
         except Error as e:
@@ -156,7 +156,7 @@ class GestorConexion:
                 self.conexion = mysql.connector.connect(**config)
             return self.conexion
         except Error as e:
-            print(f"❌ Error al obtener conexión: {e}")
+            print(f" Error al obtener conexión: {e}")
             return None
     
     def obtener_tablas(self):
@@ -172,7 +172,7 @@ class GestorConexion:
             cursor.close()
             return tablas
         except Error as e:
-            print(f"❌ Error al obtener tablas: {e}")
+            print(f" Error al obtener tablas: {e}")
             return []
     
     def cerrar_conexion(self):
@@ -180,9 +180,9 @@ class GestorConexion:
         try:
             if self.conexion and self.conexion.is_connected():
                 self.conexion.close()
-                print("✅ Conexión cerrada correctamente")
+                print(" Conexión cerrada correctamente")
         except Error as e:
-            print(f"❌ Error al cerrar conexión: {e}")
+            print(f" Error al cerrar conexión: {e}")
     
     def obtener_datos_tabla(self, nombre_tabla_formateado):
         try:
@@ -231,7 +231,7 @@ class GestorConexion:
             return None, "No se encontraron datos"
             
         except Error as e:
-            print(f"❌ Error al obtener datos: {e}")
+            print(f" Error al obtener datos: {e}")
             return None, f"Error: {str(e)}"
         finally:
             if 'cursor' in locals():
@@ -305,7 +305,7 @@ class ConfiguracionDialog(QDialog):
     def __init__(self, config_actual, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Configuración de Conexión")#titulo del diálogo
-        self.setWindowIcon(QIcon("C:/Users/taver/OneDrive/Documentos/Development/AisaRevensData/imagenes/gestion-de-base-de-datos.png"))#icono del diálogo
+        self.setWindowIcon(QIcon("RUTA/ICONO"))#icono del diálogo
         self.setModal(True)
         
         layout = QVBoxLayout()
@@ -383,7 +383,7 @@ class MainWindow(QMainWindow):
                 width: 20px;
             }
             QComboBox::down-arrow {
-                image: url("C:/Users/taver/OneDrive/Documentos/Development/AisaRevensData/imagenes/flecha.png");
+                image: url("RUTA/flecha.png");
                 margin-right: 20px;
             }
             QLineEdit {
@@ -551,7 +551,7 @@ class MainWindow(QMainWindow):
         
         # Crear el botón de configuración con icono de engrane
         self.btn_config_status = QPushButton()
-        self.btn_config_status.setIcon(QIcon(QPixmap("C:/Users/taver/OneDrive/Documentos/Development/AisaRevensData/imagenes/gestion-de-base-de-datos.png")))
+        self.btn_config_status.setIcon(QIcon(QPixmap("RUTA/imagenes/gestion-de-base-de-datos.png")))
         self.btn_config_status.setFixedSize(24, 24)
         self.btn_config_status.setToolTip("Configurar conexión")  # Agregar tooltip
         self.btn_config_status.setStyleSheet("""
@@ -834,7 +834,7 @@ class MainWindow(QMainWindow):
             dialog = MySQLDBCreator()
 
             #icono 
-            icon_path = "C:/Users/taver/OneDrive/Documentos/Development/AisaRevensData/imagenes/big-data.png"
+            icon_path = "RUTA/imagenes/big-data.png"
             dialog.setWindowIcon(QIcon(icon_path))#carga la imagen del icono
 
             dialog.exec_()
@@ -868,7 +868,7 @@ class MainWindow(QMainWindow):
             editor.showMaximized()  # Asegurar que se muestre maximizado
 
             # Configurar el icono del editor
-            icon_path = "C:/Users/taver/OneDrive/Documentos/Development/AisaRevensData/imagenes/big-data.png"
+            icon_path = "RUTA/imagenes/big-data.png"
             editor.setWindowIcon(QIcon(icon_path))#carga la imagen del icono
 
 
