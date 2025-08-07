@@ -1,7 +1,8 @@
 # Gestor de Bases de Datos MySQL con Python
 **Solución integral para la administración visual de bases de datos MySQL**, diseñada específicamente para las necesidades de un administrador de BD. Combina potencia técnica con una interfaz intuitiva que permite gestionar bases de datos, tablas y registros con facilidad.
 
-![AISA DB Commander Interface](<img width="1365" height="719" alt="image" src="https://github.com/user-attachments/assets/ccf9f71d-b8c9-42a5-bbba-bd739c0e9e44" />)
+<img width="1365" height="719" alt="image" src="https://github.com/user-attachments/assets/f30d3002-a64e-4ce3-817d-129a0e72f9c1" />
+
 
 ## Características Principales
 - **Gestión completa de bases de datos**:
