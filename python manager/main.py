@@ -1,13 +1,14 @@
-#librerias necesarias
+# librerias necesarias
 import os
 import sys
+import json
 import mysql.connector
 from mysql.connector import Error
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QLabel, QComboBox, QPushButton, 
                              QTextEdit, QMessageBox, QFrame, QTableWidget, 
                              QTableWidgetItem, QLineEdit, QHeaderView, QStatusBar, 
-                             QInputDialog, QDialog, QStyle)
+                             QInputDialog, QDialog, QStyle, QTabWidget, QGroupBox)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QPropertyAnimation, QPoint, QTimer
 from PyQt5.QtGui import QFont, QPalette, QColor, QIcon, QPixmap
 from PyQt5.QtWidgets import QSizePolicy
@@ -20,7 +21,6 @@ class NotificationWidget(QWidget):
         self.setup_ui()
         self.animation = QPropertyAnimation(self, b"pos")
         
-    # Configuración de la UI del widget de notificación    
     def setup_ui(self):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
         self.setStyleSheet("""
@@ -29,7 +29,6 @@ class NotificationWidget(QWidget):
             border-radius: 4px;
             padding: 10px;
         """)
-        # Layout del widget de notificación
         layout = QHBoxLayout(self)
         self.icon_label = QLabel()
         self.message_label = QLabel()
@@ -44,7 +43,6 @@ class NotificationWidget(QWidget):
         self.adjustSize()
         
     def show_notification(self, message, is_success=True):
-        """Muestra la notificación con el mensaje y estilo apropiado"""
         if is_success:
             self.icon_label.setPixmap(QIcon.fromTheme("dialog-ok").pixmap(24, 24))
             self.setStyleSheet("""
@@ -74,7 +72,6 @@ class NotificationWidget(QWidget):
         self.move(end_pos)
         self.show()
         
-        
         if is_success:
             self.hide_timer = self.startTimer(3000)
         
@@ -82,20 +79,57 @@ class NotificationWidget(QWidget):
         self.killTimer(event.timerId())
         self.hide()
 
-
 class GestorConexion:
     """Clase para gestionar la conexión y operaciones con MySQL"""
     
     def __init__(self):
         self.config = {
-            'host': '',# Cambia esto por tu host/dirección IP
+          # Configuración por defecto
+            'host': '',#coloca tu host/ip
             'port': 3306,
-            'user': '', #cambia esto por tu usuario
-            'password': '' #cambia esto por tu contraseña
+            'user': '',#coloca tu usuario de mysql
+            'password': '', #coloca tu contraseña del usuario mysql 
+            'database': None
         }
-        self.conexion = None #bjeto de conexión a la BD
-        self.database = None #referencia a la base de datos
+        self.conexion = None
+        self.database = None
+        self.cargar_configuracion()
     
+    def cargar_configuracion(self):
+        """Intenta cargar la configuración desde un archivo"""
+        try:
+            if os.path.exists('config_db.json'):
+                with open('config_db.json', 'r') as f:
+                    saved_config = json.load(f)
+                    # Actualizar solo las claves existentes
+                    for key in saved_config:
+                        if key in self.config:
+                            self.config[key] = saved_config[key]
+        except Exception as e:
+            print(f"Error al cargar configuración: {e}")
+    
+    def guardar_configuracion(self):
+        """Guarda la configuración actual en un archivo"""
+        try:
+            with open('config_db.json', 'w') as f:
+                json.dump(self.config, f, indent=4)
+        except Exception as e:
+            print(f"Error al guardar configuración: {e}")
+    
+    def actualizar_configuracion(self, host=None, port=None, user=None, password=None):
+        """Actualiza la configuración de conexión"""
+        if host is not None:
+            self.config['host'] = host
+        if port is not None:
+            self.config['port'] = port
+        if user is not None:
+            self.config['user'] = user
+        if password is not None:
+            self.config['password'] = password
+            
+        self.guardar_configuracion()
+        return self.verificar_conexion()
+
     def verificar_conexion(self):
         try:
             config = self.config.copy()
@@ -109,12 +143,10 @@ class GestorConexion:
             return False
 
     def obtener_bases_datos(self):
-        """Obtiene solo las bases de datos de usuario, excluyendo las del sistema"""
         try:
             if not self.conexion or not self.conexion.is_connected():
                 self.conexion = mysql.connector.connect(**self.config)
             
-            # Lista de bases de datos del sistema que queremos excluir
             bases_sistema = {
                 'information_schema', 
                 'mysql', 
@@ -122,16 +154,15 @@ class GestorConexion:
                 'sys',
                 'phpmyadmin'
             }
-            #Crea un objeto cursor que permite ejecutar comandos SQL en la conexión establecida
+            
             cursor = self.conexion.cursor() 
             cursor.execute("SHOW DATABASES")
-            # Filtrar las bases de datos del sistema
             bases_datos = [bd[0] for bd in cursor.fetchall() 
                          if bd[0] not in bases_sistema]
             cursor.close()
             return bases_datos
         except Error as e:
-            print(f" Error al obtener bases de datos: {e}")
+            print(f"❌ Error al obtener bases de datos: {e}")
             return []
 
     def seleccionar_base_datos(self, database):
@@ -139,7 +170,7 @@ class GestorConexion:
             self.database = database
             if self.conexion and self.conexion.is_connected():
                 self.conexion.database = database
-                print(f" Base de datos {database} seleccionada")
+                print(f"✅ Base de datos {database} seleccionada")
                 return True
             return False
         except Error as e:
@@ -147,7 +178,6 @@ class GestorConexion:
             return False
     
     def obtener_conexion(self):
-        """Obtiene o crea una nueva conexión a MySQL"""
         try:
             if not self.conexion or not self.conexion.is_connected():
                 config = self.config.copy()
@@ -156,11 +186,10 @@ class GestorConexion:
                 self.conexion = mysql.connector.connect(**config)
             return self.conexion
         except Error as e:
-            print(f" Error al obtener conexión: {e}")
+            print(f"❌ Error al obtener conexión: {e}")
             return None
     
     def obtener_tablas(self):
-        """Obtiene las tablas de la base de datos actual"""
         tablas = []
         try:
             if not self.conexion or not self.conexion.is_connected():
@@ -172,17 +201,16 @@ class GestorConexion:
             cursor.close()
             return tablas
         except Error as e:
-            print(f" Error al obtener tablas: {e}")
+            print(f"❌ Error al obtener tablas: {e}")
             return []
     
     def cerrar_conexion(self):
-        """Cierra la conexión a MySQL si está abierta"""
         try:
             if self.conexion and self.conexion.is_connected():
                 self.conexion.close()
-                print(" Conexión cerrada correctamente")
+                print("✅ Conexión cerrada correctamente")
         except Error as e:
-            print(f" Error al cerrar conexión: {e}")
+            print(f"❌ Error al cerrar conexión: {e}")
     
     def obtener_datos_tabla(self, nombre_tabla_formateado):
         try:
@@ -199,7 +227,6 @@ class GestorConexion:
             tablas_disponibles = []
             for t in cursor.fetchall():
                 if isinstance(t, dict):
-                    # Usar el nombre de la base de datos actual
                     tablas_disponibles.append(t[f'Tables_in_{self.database}'])
                 else:
                     tablas_disponibles.append(t[0])
@@ -231,16 +258,13 @@ class GestorConexion:
             return None, "No se encontraron datos"
             
         except Error as e:
-            print(f" Error al obtener datos: {e}")
+            print(f"❌ Error al obtener datos: {e}")
             return None, f"Error: {str(e)}"
         finally:
             if 'cursor' in locals():
                 cursor.close()
     
     def buscar_en_toda_bd(self, texto_busqueda):
-        """
-        Busca el texto en todas las tablas de la base de datos.
-        """
         resultados = {}
         try:
             conexion = self.obtener_conexion()
@@ -250,7 +274,6 @@ class GestorConexion:
             cursor = conexion.cursor(dictionary=True)
             
             cursor.execute("SHOW TABLES")
-            # Usar self.database en lugar de self.config['database']
             tablas = [t[f'Tables_in_{self.database}'] for t in cursor.fetchall()]
             
             for tabla in tablas:
@@ -280,7 +303,134 @@ class GestorConexion:
     def formatear_nombre_tabla(nombre):
         return nombre.replace('_', ' ').title()
 
-#clase para manejo de hilos
+class ConfiguracionDialog(QDialog):
+    """Diálogo para configurar la conexión a MySQL con pestañas"""
+    def __init__(self, config_actual, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Configuración de Conexión")
+        self.setWindowIcon(QIcon("RUTA/imagenes/gestion-de-base-de-datos.png"))
+        self.setModal(True)
+        self.config_actual = config_actual
+        
+        # Crear pestañas
+        self.tab_widget = QTabWidget()
+        
+        # Pestaña de configuración básica
+        self.tab_basica = QWidget()
+        self.setup_ui_basica()
+        
+        # Pestaña de configuración avanzada
+        self.tab_avanzada = QWidget()
+        self.setup_ui_avanzada()
+        
+        # Agregar pestañas al widget
+        self.tab_widget.addTab(self.tab_basica, "Básica")
+        self.tab_widget.addTab(self.tab_avanzada, "Avanzada")
+        
+        # Botones
+        btn_layout = QHBoxLayout()
+        btn_aceptar = QPushButton("Aceptar")
+        btn_cancelar = QPushButton("Cancelar")
+        btn_aceptar.clicked.connect(self.accept)
+        btn_cancelar.clicked.connect(self.reject)
+        btn_layout.addWidget(btn_aceptar)
+        btn_layout.addWidget(btn_cancelar)
+        
+        # Layout principal
+        layout = QVBoxLayout()
+        layout.addWidget(self.tab_widget)
+        layout.addLayout(btn_layout)
+        
+        self.setLayout(layout)
+        
+    def setup_ui_basica(self):
+        """Configura la interfaz de la pestaña básica (solo host)"""
+        layout = QVBoxLayout(self.tab_basica)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        group = QGroupBox("Configuración Rápida")
+        group_layout = QVBoxLayout()
+        
+        host_layout = QHBoxLayout()
+        host_label = QLabel("Host/IP:")
+        self.host_basico_input = QLineEdit(self.config_actual['host'])
+        host_layout.addWidget(host_label)
+        host_layout.addWidget(self.host_basico_input)
+        
+        group_layout.addLayout(host_layout)
+        group.setLayout(group_layout)
+        
+        layout.addWidget(group)
+        layout.addStretch()
+        
+    def setup_ui_avanzada(self):
+        """Configura la interfaz de la pestaña avanzada (todos los campos)"""
+        layout = QVBoxLayout(self.tab_avanzada)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        group = QGroupBox("Configuración Completa")
+        group_layout = QVBoxLayout()
+        
+        # Host
+        host_layout = QHBoxLayout()
+        host_label = QLabel("Host/IP:")
+        self.host_avanzado_input = QLineEdit(self.config_actual['host'])
+        host_layout.addWidget(host_label)
+        host_layout.addWidget(self.host_avanzado_input)
+        group_layout.addLayout(host_layout)
+        
+        # Puerto
+        port_layout = QHBoxLayout()
+        port_label = QLabel("Puerto:")
+        self.port_input = QLineEdit(str(self.config_actual.get('port', 3306)))
+        port_layout.addWidget(port_label)
+        port_layout.addWidget(self.port_input)
+        group_layout.addLayout(port_layout)
+        
+        # Usuario
+        user_layout = QHBoxLayout()
+        user_label = QLabel("Usuario:")
+        self.user_input = QLineEdit(self.config_actual['user'])
+        user_layout.addWidget(user_label)
+        user_layout.addWidget(self.user_input)
+        group_layout.addLayout(user_layout)
+        
+        # Contraseña
+        pass_layout = QHBoxLayout()
+        pass_label = QLabel("Contraseña:")
+        self.pass_input = QLineEdit(self.config_actual['password'])
+        self.pass_input.setEchoMode(QLineEdit.Password)
+        pass_layout.addWidget(pass_label)
+        pass_layout.addWidget(self.pass_input)
+        group_layout.addLayout(pass_layout)
+        
+        group.setLayout(group_layout)
+        layout.addWidget(group)
+        layout.addStretch()
+        
+    def get_config(self):
+        """Obtiene la configuración completa según la pestaña activa"""
+        if self.tab_widget.currentIndex() == 0:  # Pestaña básica
+            return {
+                'host': self.host_basico_input.text(),
+                'port': self.config_actual.get('port', 3306),
+                'user': self.config_actual.get('user', ''),
+                'password': self.config_actual.get('password', ''),
+                'database': self.config_actual.get('database', '')
+            }
+        else:  # Pestaña avanzada
+            try:
+                port = int(self.port_input.text())
+            except ValueError:
+                port = 3306
+                
+            return {
+                'host': self.host_avanzado_input.text(),
+                'port': port,
+                'user': self.user_input.text(),
+                'password': self.pass_input.text()
+            }
+
 class ConexionThread(QThread):
     """Hilo para verificar la conexión a MySQL sin bloquear la UI"""
     conexion_result = pyqtSignal(bool, str)
@@ -299,42 +449,6 @@ class ConexionThread(QThread):
         except Exception as e:
             self.conexion_result.emit(False, f"Error: {str(e)}")
 
-# Clase para el diálogo de configuración de conexión
-class ConfiguracionDialog(QDialog):
-    """Diálogo para configurar la conexión a MySQL"""
-    def __init__(self, config_actual, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Configuración de Conexión")#titulo del diálogo
-        self.setWindowIcon(QIcon("RUTA/ICONO"))#icono del diálogo
-        self.setModal(True)
-        
-        layout = QVBoxLayout()
-        
-        # Host
-        host_layout = QHBoxLayout()
-        host_label = QLabel("Host:")
-        self.host_input = QLineEdit(config_actual['host'])
-        host_layout.addWidget(host_label)
-        host_layout.addWidget(self.host_input)
-        
-        # Botones
-        btn_layout = QHBoxLayout()
-        btn_aceptar = QPushButton("Aceptar")
-        btn_cancelar = QPushButton("Cancelar")
-        btn_aceptar.clicked.connect(self.accept)
-        btn_cancelar.clicked.connect(self.reject)
-        btn_layout.addWidget(btn_aceptar)
-        btn_layout.addWidget(btn_cancelar)
-        
-        layout.addLayout(host_layout)
-        layout.addLayout(btn_layout)
-        
-        self.setLayout(layout)
-    # Método para obtener la configuración ingresada
-    def get_config(self):
-        return {'host': self.host_input.text()}
-
-# Clase principal de la aplicación
 class MainWindow(QMainWindow):
     """Ventana principal de la aplicación AISA Revens Data"""
     def __init__(self):
@@ -344,8 +458,7 @@ class MainWindow(QMainWindow):
         self.init_ui()
         self.verificar_conexion_inicial()
         self.setup_auto_refresh()
-        self.showMaximized() #maximizar la ventana
-
+        self.showMaximized()
     
     def init_ui(self):
         self.setWindowTitle("AISA Revens Data - Grupo AISA")
@@ -383,7 +496,7 @@ class MainWindow(QMainWindow):
                 width: 20px;
             }
             QComboBox::down-arrow {
-                image: url("RUTA/flecha.png");
+                image: url("RUTA/imagenes/flecha.png");
                 margin-right: 20px;
             }
             QLineEdit {
@@ -428,24 +541,49 @@ class MainWindow(QMainWindow):
                 padding: 8px;
                 font-size: 11px;
             }
+            QTabWidget::pane {
+                border: 1px solid #ddd;
+                padding: 5px;
+            }
+            QTabBar::tab {
+                padding: 8px 12px;
+                background: #f1f3f5;
+                border: 1px solid #ddd;
+                border-bottom: none;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+                margin-right: 2px;
+            }
+            QTabBar::tab:selected {
+                background: #fff;
+                border-bottom: 2px solid #4361ee;
+            }
+            QGroupBox {
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                margin-top: 10px;
+                padding-top: 15px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 3px;
+            }
         """)
-        # Crear el widget central y establecer el layout principal
+        
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # Crear el layout principal
         main_layout = QVBoxLayout()
         main_layout.setSpacing(15)
         main_layout.setContentsMargins(20, 20, 20, 20)
 
-        # Crear los frames y layouts para la cabecera
         header_frame = QFrame()
         header_frame.setFrameShape(QFrame.StyledPanel)
         header_layout = QHBoxLayout(header_frame)
         header_layout.setSpacing(15)
         header_layout.setContentsMargins(10, 10, 10, 10)
 
-        # Crear los widgets de la cabecera
         db_frame = QFrame()
         db_frame.setFrameShape(QFrame.StyledPanel)
         db_layout = QVBoxLayout(db_frame)
@@ -453,12 +591,11 @@ class MainWindow(QMainWindow):
         db_label = QLabel("Seleccione una base de datos")
         self.db_combo = QComboBox()
         self.db_combo.setFixedWidth(250)
-        self.db_combo.setPlaceholderText("Seleccione base de datos...")  # Agregar placeholder
+        self.db_combo.setPlaceholderText("Seleccione base de datos...")
         self.db_combo.currentTextChanged.connect(self.on_database_selected)
         db_layout.addWidget(db_label)
         db_layout.addWidget(self.db_combo)
 
-        # Agregar un item vacío al combo de bases de datos
         tabla_frame = QFrame()
         tabla_frame.setFrameShape(QFrame.StyledPanel)
         tabla_layout = QVBoxLayout(tabla_frame)
@@ -466,13 +603,12 @@ class MainWindow(QMainWindow):
         tabla_label = QLabel("Seleccione una tabla")
         self.tabla_combo = QComboBox()
         self.tabla_combo.setFixedWidth(250)
-        self.tabla_combo.setPlaceholderText("Seleccione tabla...") # Agregar placeholder
-        self.tabla_combo.setEnabled(False)  # Deshabilitar hasta que se seleccione BD
+        self.tabla_combo.setPlaceholderText("Seleccione tabla...")
+        self.tabla_combo.setEnabled(False)
         self.tabla_combo.currentTextChanged.connect(self.on_tabla_seleccionada)
         tabla_layout.addWidget(tabla_label)
         tabla_layout.addWidget(self.tabla_combo)
 
-        # Agregar un item vacío al combo de tablas
         search_frame = QFrame()
         search_frame.setFrameShape(QFrame.StyledPanel)
         search_layout = QVBoxLayout(search_frame)
@@ -485,59 +621,48 @@ class MainWindow(QMainWindow):
         search_layout.addWidget(search_label)
         search_layout.addWidget(self.search_input)
 
-        # Agregar un item vacío al campo de búsqueda
         header_layout.addWidget(db_frame)
         header_layout.addWidget(tabla_frame)
         header_layout.addWidget(search_frame)
         header_layout.addStretch()
 
-        # Crear el contenido principal
         content_frame = QFrame()
         content_frame.setFrameShape(QFrame.StyledPanel)
         content_layout = QVBoxLayout(content_frame)
         content_layout.setSpacing(10)
         content_layout.setContentsMargins(10, 10, 10, 10)
 
-        # Título de la tabla
         self.tabla_title = QLabel("Tabla seleccionada: ninguna")
         self.tabla_title.setFont(QFont("Arial", 12, QFont.Bold))
         self.tabla_title.setStyleSheet("color: #495057;")
 
-        # Crear la tabla para mostrar los datos
         self.table_widget = QTableWidget()
         self.table_widget.setAlternatingRowColors(True)
         self.table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table_widget.verticalHeader().setVisible(False)
 
-        # Establecer un estilo para la tabla
         content_layout.addWidget(self.tabla_title)
         content_layout.addWidget(self.table_widget)
         
-        # Crear el frame para los botones
         button_frame = QFrame()
         button_layout = QHBoxLayout(button_frame)
         button_layout.setSpacing(15)
         
-        # Botón para agregar base de datos
         self.btn_agregar_base = QPushButton("Agregar base de datos")
         self.btn_agregar_base.clicked.connect(self.agregar_base_datos)
         
-        # Modificar la configuración inicial del botón
         self.btn_agregar_tabla = QPushButton("Agregar/modificar tabla")
         self.btn_agregar_tabla.clicked.connect(self.agregar_modificar_tabla)
-        self.btn_agregar_tabla.setEnabled(True)  # Habilitamos el botón por defecto
+        self.btn_agregar_tabla.setEnabled(True)
         
-        # Modificar el button_layout
         button_layout.addWidget(self.btn_agregar_base)
         button_layout.addStretch()
         button_layout.addWidget(self.btn_agregar_tabla)
         
-        # Crear el footer
         footer_label = QLabel("Ravens Developers © - Grupo AISA")
         footer_label.setAlignment(Qt.AlignCenter)
         footer_label.setStyleSheet("color: #6c757d; font-size: 10px; margin-top: 10px;")
         
-        # Organizar todo en el layout principal
         main_layout.addWidget(header_frame)
         main_layout.addWidget(content_frame, 1)
         main_layout.addWidget(button_frame)
@@ -545,20 +670,18 @@ class MainWindow(QMainWindow):
         
         central_widget.setLayout(main_layout)
         
-        # Modificar la configuración de la barra de estado
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         
-        # Crear el botón de configuración con icono de engrane
         self.btn_config_status = QPushButton()
         self.btn_config_status.setIcon(QIcon(QPixmap("RUTA/imagenes/gestion-de-base-de-datos.png")))
         self.btn_config_status.setFixedSize(24, 24)
-        self.btn_config_status.setToolTip("Configurar conexión")  # Agregar tooltip
+        self.btn_config_status.setToolTip("Configurar conexión")
         self.btn_config_status.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
                 border: none;
-                margin: 0 5px;  /* Agregar un poco de margen */
+                margin: 0 5px;
             }
             QPushButton:hover {
                 background-color: rgba(0, 0, 0, 0.1);
@@ -567,14 +690,12 @@ class MainWindow(QMainWindow):
         """)
         self.btn_config_status.clicked.connect(self.mostrar_dialogo_configuracion)
         
-        # Crear widget permanente para el botón
         status_widget = QWidget()
         status_layout = QHBoxLayout(status_widget)
         status_layout.setContentsMargins(0, 0, 0, 0)
         status_layout.addWidget(self.btn_config_status)
         
-        # Agregar elementos a la barra de estado
-        self.status_bar.addPermanentWidget(status_widget)  # Permanente a la derecha
+        self.status_bar.addPermanentWidget(status_widget)
         self.status_bar.setStyleSheet("""
             QStatusBar {
                 background-color: #f0f0f0;
@@ -588,7 +709,6 @@ class MainWindow(QMainWindow):
         self.notification.hide()
     
     def filtrar_datos(self):
-        """Filtra los datos en toda la base de datos según el texto ingresado"""
         search_text = self.search_input.text().strip()
         
         if not search_text:
@@ -605,7 +725,6 @@ class MainWindow(QMainWindow):
         self.mostrar_resultados_globales(resultados, search_text)
     
     def mostrar_resultados_globales(self, resultados, search_text):
-        """Muestra los resultados de la búsqueda global en la tabla"""
         self.table_widget.clear()
         
         if not resultados:
@@ -658,27 +777,21 @@ class MainWindow(QMainWindow):
         self.table_widget.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
     
     def setup_auto_refresh(self):
-        """Configura un temporizador para refrescar automáticamente los datos cada 30 segundos"""
-         # Temporizador para refrescar automáticamente los datos
-         # Cada 30 segundos
         self.refresh_timer = QTimer(self)
         self.refresh_timer.timeout.connect(self.auto_refresh_data)
         self.refresh_timer.start(30000)
     
     def auto_refresh_data(self):
-        """Refresca los datos automáticamente si hay una tabla seleccionada"""
         if self.tabla_combo.currentText() and self.tabla_combo.currentText() != "No hay tablas disponibles":
             current_table = self.tabla_combo.currentText()
             self.mostrar_datos_tabla(current_table)
     
     def verificar_conexion_inicial(self):
-        """Verifica la conexión inicial a MySQL y muestra el diálogo de configuración si es necesario"""
         self.thread_conexion = ConexionThread(self.gestor_conexion)
         self.thread_conexion.conexion_result.connect(self.mostrar_resultado_conexion)
         self.thread_conexion.start()
     
     def mostrar_resultado_conexion(self, exito, mensaje):
-        """Muestra el resultado de la verificación de conexión"""
         if exito:
             self.notification.show_notification("Conexión exitosa a MySQL", True)
             self.status_bar.showMessage("Conectado al servidor MySQL")
@@ -699,7 +812,6 @@ class MainWindow(QMainWindow):
                 }
             """)
             
-            # Cargar las bases de datos disponibles
             self.cargar_bases_datos()
             
             self.db_combo.setEnabled(True)
@@ -727,7 +839,6 @@ class MainWindow(QMainWindow):
             self.btn_agregar_tabla.setEnabled(False)
     
     def mostrar_mensaje_error(self, mensaje):
-        """Muestra un mensaje de error en la tabla cuando no se puede conectar a MySQL"""
         self.table_widget.clear()
         self.table_widget.setRowCount(1)
         self.table_widget.setColumnCount(1)
@@ -738,18 +849,16 @@ class MainWindow(QMainWindow):
         self.table_widget.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
     
     def cargar_bases_datos(self):
-        """Carga las bases de datos disponibles en el combo box"""
         self.db_combo.clear()
         bases_datos = self.gestor_conexion.obtener_bases_datos()
         if bases_datos:
-            self.db_combo.addItem("")  # Agregar item vacío
+            self.db_combo.addItem("")
             self.db_combo.addItems(bases_datos)
         else:
             self.notification.show_notification("No se encontraron bases de datos", False)
 
     def on_database_selected(self, database):
-        """Maneja la selección de una base de datos en el combo box"""
-        if not database:  # Si no hay selección, limpiar y deshabilitar controles
+        if not database:
             self.tabla_combo.clear()
             self.tabla_combo.setEnabled(False)
             self.search_input.setEnabled(False) 
@@ -764,13 +873,12 @@ class MainWindow(QMainWindow):
             self.notification.show_notification(f"Error al seleccionar la base de datos {database}", False)
     
     def cargar_tablas(self):
-        """Carga las tablas de la base de datos seleccionada en el combo box"""
         try:
             tablas = self.gestor_conexion.obtener_tablas()
             self.tabla_combo.clear()
             
             if tablas:
-                self.tabla_combo.addItem("")  # Agregar item vacío
+                self.tabla_combo.addItem("")
                 for tabla in tablas:
                     nombre_formateado = self.gestor_conexion.formatear_nombre_tabla(tabla)
                     self.tabla_combo.addItem(nombre_formateado)
@@ -788,8 +896,7 @@ class MainWindow(QMainWindow):
             self.tabla_combo.setEnabled(False)
     
     def on_tabla_seleccionada(self, nombre_formateado):
-        """Maneja la selección de una tabla en el combo box"""
-        if not nombre_formateado:  # Si no hay selección, limpiar vista
+        if not nombre_formateado:
             self.search_input.clear()
             self.tabla_title.setText("Tabla seleccionada: ninguna")
             self.table_widget.clear()
@@ -800,7 +907,6 @@ class MainWindow(QMainWindow):
         self.mostrar_datos_tabla(nombre_formateado)
     
     def mostrar_datos_tabla(self, nombre_tabla_formateado):
-        """Muestra los datos de la tabla seleccionada en el QTableWidget"""
         encabezados, datos = self.gestor_conexion.obtener_datos_tabla(nombre_tabla_formateado)
         
         self.table_widget.clear()
@@ -825,21 +931,14 @@ class MainWindow(QMainWindow):
         self.table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
     
     def agregar_base_datos(self):
-        """Abre el diálogo para agregar o modificar bases de datos"""
         try:
-            # Importar la clase MySQLDBCreator del módulo agregar_base_datos
             from agregar_base_datos import MySQLDBCreator
             
-            # Crear y mostrar el diálogo de gestión de bases de datos
             dialog = MySQLDBCreator()
-
-            #icono 
             icon_path = "RUTA/imagenes/big-data.png"
-            dialog.setWindowIcon(QIcon(icon_path))#carga la imagen del icono
-
+            dialog.setWindowIcon(QIcon(icon_path))
             dialog.exec_()
             
-            # Recargar la lista de bases de datos después de cerrar el diálogo
             self.cargar_bases_datos()
             
         except Exception as e:
@@ -849,10 +948,7 @@ class MainWindow(QMainWindow):
             )
     
     def agregar_modificar_tabla(self):
-        """Abre el diálogo para agregar o modificar tablas"""
-         # Importar la clase MySQLCompleteEditor del módulo editortabla
         try:
-            # Verificar que haya una base de datos seleccionada
             if not self.db_combo.currentText():
                 self.notification.show_notification(
                     "Debe seleccionar una base de datos primero",
@@ -860,21 +956,12 @@ class MainWindow(QMainWindow):
                 )
                 return
 
-            # Importar la clase MySQLCompleteEditor del módulo editortabla
             from editortabla import MySQLCompleteEditor
-
-            # Crear y mostrar el diálogo del editor de tablas
             editor = MySQLCompleteEditor()
-            editor.showMaximized()  # Asegurar que se muestre maximizado
-
-            # Configurar el icono del editor
+            editor.showMaximized()
             icon_path = "RUTA/imagenes/big-data.png"
-            editor.setWindowIcon(QIcon(icon_path))#carga la imagen del icono
-
-
+            editor.setWindowIcon(QIcon(icon_path))
             editor.exec_()
-
-            # Recargar las tablas después de cerrar el diálogo
             self.cargar_tablas()
             
         except ImportError as e:
@@ -889,7 +976,6 @@ class MainWindow(QMainWindow):
             )
     
     def mostrar_mensaje(self, titulo, mensaje):
-        """Muestra un mensaje de información en un cuadro de diálogo"""
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Information)
         msg.setWindowTitle(titulo)
@@ -897,17 +983,29 @@ class MainWindow(QMainWindow):
         msg.exec_()
     
     def closeEvent(self, event):
-        """Maneja el evento de cierre de la ventana principal"""
         self.gestor_conexion.cerrar_conexion()
         self.refresh_timer.stop()
         event.accept()
     
     def mostrar_dialogo_configuracion(self):
-        """Muestra un diálogo personalizado para la configuración"""
         dialog = ConfiguracionDialog(self.gestor_conexion.config, self)
         if dialog.exec_() == QDialog.Accepted:
             nueva_config = dialog.get_config()
-            if self.gestor_conexion.actualizar_configuracion(nueva_config['host']):
+            
+            if dialog.tab_widget.currentIndex() == 0:  # Pestaña básica
+                success = self.gestor_conexion.actualizar_configuracion(
+                    host=nueva_config['host']
+                )
+            else:  # Pestaña avanzada
+                success = self.gestor_conexion.actualizar_configuracion(
+                    host=nueva_config['host'],
+                    port=nueva_config['port'],
+                    user=nueva_config['user'],
+                    password=nueva_config['password'],
+                    database=nueva_config['database']
+                )
+            
+            if success:
                 self.notification.show_notification(
                     f"Conexión actualizada exitosamente a {nueva_config['host']}", 
                     True
@@ -919,21 +1017,17 @@ class MainWindow(QMainWindow):
                     False
                 )
 
-
 def main():
-    """Función principal para iniciar la aplicación"""
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     window = MainWindow()
 
-    # Configurar el icono de la aplicación
     current_dir = os.path.dirname(os.path.abspath(__file__))
     icon_path = os.path.join(current_dir, "imagenes", "big-data.png")
     window.setWindowIcon(QIcon(icon_path))
     
     window.show()
     sys.exit(app.exec_())
-
 
 if __name__ == "__main__":
     main()
