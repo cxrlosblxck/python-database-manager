@@ -1,4 +1,4 @@
-#librerias necesarias 
+#librerías 
 import os
 import sys
 import re
@@ -72,6 +72,7 @@ class EliminarBaseDatosThread(DatabaseThread):
             self.resultado.emit(False, f"Error al eliminar base de datos: {str(e)}", [])
 
 class MySQLDBCreator(QDialog):
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("MySQL Database Manager")
@@ -155,6 +156,7 @@ class MySQLDBCreator(QDialog):
         self.setLayout(layout)
     
     def conectar_servidor(self):
+    # Conectar al servidor MySQL y listar bases de datos
         config = {
             'host': self.host.text(),
             'port': self.port.value(),
@@ -170,10 +172,12 @@ class MySQLDBCreator(QDialog):
         self.thread.start()
     
     def conexion_resultado(self, success, message, databases):
+    # Resultado de la conexión al servidor
         self.test_btn.setEnabled(True)
         self.test_btn.setText("Conectar al Servidor")
         
         if success:
+        # Guardar configuración y actualizar UI
             self.config_servidor = {
                 'host': self.host.text(),
                 'port': self.port.value(),
@@ -189,11 +193,13 @@ class MySQLDBCreator(QDialog):
             QMessageBox.critical(self, "Error", message)
     
     def actualizar_lista_bd(self):
+    # Actualizar la lista de bases de datos
         self.thread = ListarBasesDatosThread(self.config_servidor, 'list')
         self.thread.resultado.connect(self.lista_actualizada)
         self.thread.start()
     
     def lista_actualizada(self, success, message, databases):
+    # Actualizar la lista de bases de datos en la UI
         self.db_list.clear()
         if success:
             for db in databases:
@@ -204,6 +210,7 @@ class MySQLDBCreator(QDialog):
             QMessageBox.critical(self, "Error", message)
     
     def mostrar_opciones_db(self, item):
+    # Mostrar opciones para la base de datos seleccionada
         db_name = item.text()
         menu = QMessageBox()
         menu.setWindowTitle(f"Opciones para: {db_name}")
@@ -218,6 +225,7 @@ class MySQLDBCreator(QDialog):
             self.eliminar_bd(db_name)
     
     def eliminar_bd(self, db_name):
+    # Eliminar la base de datos seleccionada
         reply = QMessageBox.question(
             self, "Confirmar Eliminación",
             f"¿Está seguro de eliminar la base de datos '{db_name}'?\n¡Esta acción no se puede deshacer!",
@@ -230,6 +238,7 @@ class MySQLDBCreator(QDialog):
             self.thread.start()
     
     def eliminacion_resultado(self, success, message, databases):
+    # Resultado de la eliminación de la base de datos
         if success:
             QMessageBox.information(self, "Éxito", message)
             self.lista_actualizada(True, "", databases)
@@ -237,6 +246,7 @@ class MySQLDBCreator(QDialog):
             QMessageBox.critical(self, "Error", message)
     
     def crear_bd(self):
+    # Crear una nueva base de datos
         nombre = self.db_name.text().strip()
         if not nombre:
             QMessageBox.warning(self, "Advertencia", "Ingrese un nombre para la base de datos")
@@ -258,6 +268,7 @@ class MySQLDBCreator(QDialog):
             self.thread.start()
     
     def creacion_resultado(self, success, message, databases):
+    # Resultado de la creación de la base de datos
         if success:
             QMessageBox.information(self, "Éxito", message)
             self.db_name.clear()
@@ -265,11 +276,14 @@ class MySQLDBCreator(QDialog):
         else:
             QMessageBox.critical(self, "Error", message)
 
+# Función principal
 def main():
+    # Iniciar la aplicación
     app = QApplication(sys.argv)
     window = MySQLDBCreator()
     window.show()
     
+    # Establecer ícono de la aplicación
     current_dir = os.path.dirname(os.path.abspath(__file__))
     icon_path = os.path.join(current_dir, "imagenes", "big-data.png")
     window.setWindowIcon(QIcon(icon_path))
